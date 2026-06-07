@@ -10,7 +10,34 @@ mod convert;
 mod font;
 mod progress;
 
+struct Terminal;
+
+impl Terminal {
+    fn enter_alt() {
+        print!("\x1b[?1049h");
+    }
+
+    fn exit_alt() {
+        print!("\x1b[?1049l");
+    }
+}
+
+impl Drop for Terminal {
+    fn drop(&mut self) {
+        Self::exit_alt();
+    }
+}
+
 fn main() {
+    let _term = Terminal;
+
+    Terminal::enter_alt();
+    ctrlc::set_handler(|| {
+        Terminal::exit_alt();
+        std::process::exit(0);
+    })
+    .expect("error setting Ctrl+C handler");
+
     let args = cli::parse();
 
     let image_path = Path::new(&args.image_path);
