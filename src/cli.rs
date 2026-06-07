@@ -11,8 +11,6 @@ pub struct Cli {
     pub no_color: bool,
     #[arg(long, default_value_t = 30.0)]
     pub fps: f64,
-    #[arg(short, long, default_value = "edge-augmented")]
-    pub conversion_algorithm: String,
 }
 
 pub fn parse() -> Cli {
