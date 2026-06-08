@@ -3,6 +3,7 @@ name = "rustisay"
 version = "0.1.0"
 edition = "2024"
 description = "Convert images to colored ASCII art in the terminal, with GIF support"
+readme = "README.md"
 license = "MIT"
 repository = "https://github.com/Himanshu121865/rustisay"
 
