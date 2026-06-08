@@ -1,6 +1,6 @@
 [package]
 name = "rustisay"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Convert images to colored ASCII art in the terminal, with GIF support"
 readme = "README.md"
