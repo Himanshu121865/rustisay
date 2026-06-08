@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Cursor, Read};
 use std::path::Path;
 
 #[derive(Clone)]
@@ -80,9 +80,15 @@ pub struct Font {
 }
 
 impl Font {
+    #[allow(dead_code)]
     pub fn from_bdf(path: &Path, alphabet: &[char], invert: bool) -> Self {
-        let file = File::open(path).unwrap();
-        let reader = BufReader::new(file);
+        let mut buf = Vec::new();
+        File::open(path).unwrap().read_to_end(&mut buf).unwrap();
+        Self::from_bdf_bytes(&buf, alphabet, invert)
+    }
+
+    pub fn from_bdf_bytes(bytes: &[u8], alphabet: &[char], invert: bool) -> Self {
+        let reader = BufReader::new(Cursor::new(bytes));
         let font: bdf_reader::Font = bdf_reader::Font::read(reader).unwrap();
 
         let on = !invert as u8 as f32;

@@ -43,8 +43,7 @@ fn main() {
     let image_path = Path::new(&args.image_path);
     let alphabet = alphabet::resolve(&args.alphabet, Path::new("alphabets"));
 
-    let font_path = Path::new("fonts/bitocra-13.bdf");
-    let font = font::Font::from_bdf(font_path, &alphabet, false);
+    let font = font::Font::from_bdf_bytes(include_bytes!("../fonts/bitocra-13.bdf"), &alphabet, false);
 
     let frames: Vec<DynamicImage> = {
         if image_path.extension().map(|e| e == "gif").unwrap_or(false) {
