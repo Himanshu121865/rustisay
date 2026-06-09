@@ -2,6 +2,12 @@
 
 Convert images to colored ASCII art in the terminal, with GIF support.
 
+## Install
+
+```
+cargo install rustisay
+```
+
 ## Usage
 
 ```bash
