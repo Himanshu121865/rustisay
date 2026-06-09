@@ -38,10 +38,8 @@ cargo run -- <image_path> [options]
 
 ## Features
 
-- Renders images as colored ASCII art using terminal ANSI codes
 - Animated GIF playback at configurable FPS
 - Customizable alphabets for different density/style
-- BDF bitmap font support (bitocra-13)
 - `--no-color` for monochrome terminal output
 - Progress bar during frame processing
 - Clean enter/exit of terminal alternate screen buffer
