@@ -11,14 +11,14 @@ cargo install rustisay
 ## Usage
 
 ```bash
-rustisay <image_path> [options]
+rustisay <gif_path> [options]
 ```
 
 ## Options
 
 | Flag | Short | Description | Default |
 |---|---|---|---|
-| `<image_path>` | — | Path to image or GIF file | **(required)** |
+| `<gif_path>` | — | Path to image or GIF file | **(required)** |
 | `--alphabet` | `-a` | Character set to use | `alphabet` |
 | `--width` | `-w` | Output width in characters | auto |
 | `--no-color` | `-n` | Disable color (B&W output) | `false` |
