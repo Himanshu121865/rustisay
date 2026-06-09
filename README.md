@@ -11,7 +11,7 @@ cargo install rustisay
 ## Usage
 
 ```bash
-cargo run -- <image_path> [options]
+rustisay <image_path> [options]
 ```
 
 ## Options
