@@ -1,6 +1,6 @@
 # rustisay
 
-Convert images to colored ASCII art in the terminal, with GIF support.
+Convert gif to colored ASCII art in the terminal.
 
 ## Install
 
