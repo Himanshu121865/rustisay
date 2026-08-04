@@ -9,7 +9,9 @@ use crate::font::Font;
 fn gaussian_kernel(sigma: f32, size: isize) -> Vec<f32> {
     let a = 2.0 * sigma.powi(2);
     let b = 1.0 / (PI * a).sqrt();
-    let mut kernel: Vec<f32> = (-size..=size).map(|x| b * (x.pow(2) as f32 / -a).exp()).collect();
+    let mut kernel: Vec<f32> = (-size..=size)
+        .map(|x| b * (x.pow(2) as f32 / -a).exp())
+        .collect();
     let sum: f32 = kernel.iter().sum();
     kernel.iter_mut().for_each(|v| *v /= sum);
     kernel
@@ -121,21 +123,20 @@ fn pixels_to_chunks(
 
     let mut chunks: Vec<Vec<f32>> = Vec::with_capacity(vertical_chunks * horizontal_chunks);
     let mut y_offset = 0;
-    let mut x_offset = 0;
     for _ in 0..vertical_chunks {
         let mut chunk_row: Vec<Vec<f32>> = (0..horizontal_chunks)
             .map(|_| Vec::with_capacity(chunk_size))
             .collect();
 
         for _ in 0..chunk_height {
-            for x in 0..horizontal_chunks {
+            let mut x_offset = 0;
+            for chunk in &mut chunk_row {
                 let start = y_offset + x_offset;
                 let end = start + chunk_width;
-                chunk_row[x].extend_from_slice(&pixels[start..end]);
+                chunk.extend_from_slice(&pixels[start..end]);
                 x_offset += chunk_width;
             }
             y_offset += width;
-            x_offset = 0;
         }
 
         chunks.extend(chunk_row);
@@ -144,29 +145,80 @@ fn pixels_to_chunks(
     chunks
 }
 
-fn pixels_to_chars(
-    pixels: &[f32],
-    width: usize,
-    height: usize,
-    font: &Font,
-) -> Vec<char> {
+fn pixels_to_chars(pixels: &[f32], width: usize, height: usize, font: &Font) -> Vec<char> {
     let chunks = pixels_to_chunks(pixels, width, height, font.width, font.height);
-    chunks.iter().map(|chunk| direction_and_intensity_convert(font, chunk)).collect()
+    chunks
+        .iter()
+        .map(|chunk| direction_and_intensity_convert(font, chunk))
+        .collect()
+}
+
+#[derive(Clone, Copy)]
+pub struct ToneAdjust {
+    pub invert: bool,
+    pub brightness: f32,
+    pub contrast: f32,
+}
+
+impl Default for ToneAdjust {
+    fn default() -> Self {
+        Self {
+            invert: false,
+            brightness: 0.0,
+            contrast: 1.0,
+        }
+    }
+}
+
+pub(crate) fn adjust_value(v: f32, adj: &ToneAdjust) -> f32 {
+    let mut v = if adj.invert { 1.0 - v } else { v };
+    v = (v - 0.5) * adj.contrast + 0.5 + adj.brightness;
+    v.clamp(0.0, 1.0)
+}
+
+/// Applies tone adjustments and alpha to a source pixel, producing an opaque
+/// color ready for a glyph foreground.
+pub(crate) fn colorize_pixel(p: &image::Rgba<u8>, adj: &ToneAdjust) -> image::Rgba<u8> {
+    let intensity = p[3] as f32 / 255.0;
+    image::Rgba([
+        (adjust_value(p[0] as f32 / 255.0, adj) * 255.0 * intensity) as u8,
+        (adjust_value(p[1] as f32 / 255.0, adj) * 255.0 * intensity) as u8,
+        (adjust_value(p[2] as f32 / 255.0, adj) * 255.0 * intensity) as u8,
+        255,
+    ])
+}
+
+fn adjust_luma(pixels: &mut [f32], adj: &ToneAdjust) {
+    if adj.invert || adj.brightness != 0.0 || adj.contrast != 1.0 {
+        pixels.iter_mut().for_each(|v| *v = adjust_value(*v, adj));
+    }
 }
 
 fn round_up_to_multiple(x: i32, m: i32) -> i32 {
-    x + (-x % m)
+    if m <= 0 {
+        return x;
+    }
+    let rem = x.rem_euclid(m);
+    if rem == 0 { x } else { x + (m - rem) }
 }
 
 pub fn img_to_char_rows(
     font: &Font,
     img: &DynamicImage,
     out_width: Option<usize>,
+    terminal_dims: Option<(usize, usize)>,
+    tone: &ToneAdjust,
 ) -> Vec<Vec<char>> {
     let (width, height) = (img.width() as usize, img.height() as usize);
 
     let out_width = if let Some(out_width) = out_width {
         out_width
+    } else if let Some((term_w, term_h)) = terminal_dims {
+        let by_width = term_w;
+        let by_height = ((term_h as f64 * width as f64 * font.height as f64)
+            / (height as f64 * font.width as f64))
+            .floor() as usize;
+        by_width.min(by_height)
     } else {
         round_up_to_multiple(width as i32, font.width as i32) as usize / font.width
     };
@@ -183,7 +235,8 @@ pub fn img_to_char_rows(
     let luma_pixels = luma.into_raw();
     let (luma_w, luma_h) = (img.width() as usize, img.height() as usize);
 
-    let resized_f32 = resize_f32(&luma_pixels, luma_w, luma_h, out_img_width, out_img_height);
+    let mut resized_f32 = resize_f32(&luma_pixels, luma_w, luma_h, out_img_width, out_img_height);
+    adjust_luma(&mut resized_f32, tone);
 
     let mut edge_pixels = resized_f32.clone();
     gaussian_blur(&mut edge_pixels, out_img_width, out_img_height, 1.0);
@@ -200,13 +253,7 @@ pub fn img_to_char_rows(
     chars.chunks(out_width).map(|c| c.to_vec()).collect()
 }
 
-fn resize_f32(
-    pixels: &[f32],
-    src_w: usize,
-    src_h: usize,
-    dst_w: usize,
-    dst_h: usize,
-) -> Vec<f32> {
+fn resize_f32(pixels: &[f32], src_w: usize, src_h: usize, dst_w: usize, dst_h: usize) -> Vec<f32> {
     let mut out = vec![0.0; dst_w * dst_h];
     let x_ratio = src_w as f32 / dst_w as f32;
     let y_ratio = src_h as f32 / dst_h as f32;
@@ -238,8 +285,16 @@ pub fn char_rows_to_string(char_rows: &[Vec<char>]) -> String {
         .join("\n")
 }
 
-pub fn char_rows_to_terminal_color_string(char_rows: &[Vec<char>], img: &DynamicImage) -> String {
+pub fn char_rows_to_terminal_color_string(
+    char_rows: &[Vec<char>],
+    img: &DynamicImage,
+    tone: &ToneAdjust,
+) -> String {
     use colored::Colorize;
+
+    if char_rows.is_empty() || char_rows[0].is_empty() {
+        return String::new();
+    }
 
     let n_cols = char_rows[0].len();
     let n_rows = char_rows.len();
@@ -249,22 +304,99 @@ pub fn char_rows_to_terminal_color_string(char_rows: &[Vec<char>], img: &Dynamic
     for (j, row) in char_rows.iter().enumerate() {
         for (i, &c) in row.iter().enumerate() {
             let p = color_img.get_pixel(i as u32, j as u32);
-            let r = p[0];
-            let g = p[1];
-            let b = p[2];
-            let a = p[3];
-            let intensity = a as f32 / 255.0;
-            result.push_str(
-                &format!("{}", c.to_string().truecolor(
-                    (r as f32 * intensity) as u8,
-                    (g as f32 * intensity) as u8,
-                    (b as f32 * intensity) as u8,
-                ))
-            );
+            let fg = colorize_pixel(&p, tone);
+            result.push_str(&format!("{}", c.to_string().truecolor(fg[0], fg[1], fg[2])));
         }
         if j < n_rows - 1 {
             result.push('\n');
         }
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn adjust_value_is_identity_by_default() {
+        let adj = ToneAdjust::default();
+        assert!((adjust_value(0.25, &adj) - 0.25).abs() < 1e-6);
+        assert!((adjust_value(0.0, &adj) - 0.0).abs() < 1e-6);
+        assert!((adjust_value(1.0, &adj) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn adjust_value_inverts() {
+        let adj = ToneAdjust {
+            invert: true,
+            ..ToneAdjust::default()
+        };
+        assert!((adjust_value(0.25, &adj) - 0.75).abs() < 1e-6);
+    }
+
+    #[test]
+    fn adjust_value_applies_brightness_and_contrast() {
+        let adj = ToneAdjust {
+            brightness: 0.1,
+            ..ToneAdjust::default()
+        };
+        assert!((adjust_value(0.5, &adj) - 0.6).abs() < 1e-6);
+
+        let adj = ToneAdjust {
+            contrast: 2.0,
+            ..ToneAdjust::default()
+        };
+        assert!((adjust_value(0.75, &adj) - 1.0).abs() < 1e-6);
+        assert!((adjust_value(0.0, &adj) - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn adjust_value_clamps() {
+        let adj = ToneAdjust {
+            brightness: 1.0,
+            ..ToneAdjust::default()
+        };
+        assert_eq!(adjust_value(1.0, &adj), 1.0);
+    }
+
+    #[test]
+    fn round_up_to_multiple_matches_expectations() {
+        assert_eq!(round_up_to_multiple(200, 13), 208);
+        assert_eq!(round_up_to_multiple(13, 13), 13);
+        assert_eq!(round_up_to_multiple(0, 13), 0);
+        assert_eq!(round_up_to_multiple(10, 13), 13);
+        assert_eq!(round_up_to_multiple(7, 0), 7);
+    }
+
+    #[test]
+    fn resize_f32_keeps_uniform_image_uniform() {
+        let src = vec![0.5; 4];
+        let dst = resize_f32(&src, 2, 2, 4, 4);
+        assert_eq!(dst.len(), 16);
+        assert!(dst.iter().all(|v| (*v - 0.5).abs() < 1e-6));
+    }
+
+    #[test]
+    fn resize_f32_picks_top_left_corner_when_shrinking() {
+        let src = vec![1.0, 0.0, 0.0, 0.0];
+        let dst = resize_f32(&src, 2, 2, 1, 1);
+        assert_eq!(dst, vec![1.0]);
+    }
+
+    #[test]
+    fn char_rows_use_full_grid() {
+        // bitocra-13 is 7x13: a 26x26 image yields 4 columns and 2 rows.
+        let font = crate::font::Font::from_bdf_bytes(
+            include_bytes!("../fonts/bitocra-13.bdf"),
+            &['#'],
+            false,
+        )
+        .unwrap();
+        let img = DynamicImage::new_rgba8(26, 26);
+        let rows = img_to_char_rows(&font, &img, None, None, &ToneAdjust::default());
+        assert_eq!(rows.len(), 2);
+        assert!(rows.iter().all(|row| row.len() == 4));
+        assert!(rows.iter().all(|row| row.iter().all(|&c| c == '#')));
+    }
 }

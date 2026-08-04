@@ -1,6 +1,6 @@
 # rustisay
 
-Convert gif to colored ASCII art in the terminal.
+Convert images and animated GIFs/APNGs/WebPs to colored ASCII art in the terminal.
 
 ## Install
 
@@ -11,18 +11,25 @@ cargo install rustisay
 ## Usage
 
 ```bash
-rustisay <gif_path> [options]
+rustisay <image_path> [options]
 ```
 
 ## Options
 
 | Flag | Short | Description | Default |
 |---|---|---|---|
-| `<gif_path>` | — | Path to image or GIF file | **(required)** |
+| `<image_path>` | — | Path to image, GIF, APNG, or animated WebP file | **(required)** |
 | `--alphabet` | `-a` | Character set to use | `alphabet` |
 | `--width` | `-w` | Output width in characters | auto |
 | `--no-color` | `-n` | Disable color (B&W output) | `false` |
-| `--fps` | — | Frames per second (GIF only) | `30.0` |
+| `--output` | `-o` | Write ASCII art to a file (no terminal playback); `.gif` extension writes a real animated GIF | — |
+| `--gif` | — | Force GIF output regardless of the `--output` file extension | `false` |
+| `--repeat` | — | Loop count for GIF output; `0` loops forever | `0` |
+| `--bg-color` | — | Background color of the GIF output (`#RRGGBB`, `#RGB`, `black`, `white`) | `black` |
+| `--invert` | — | Invert luminance (photo negative) | `false` |
+| `--brightness` | — | Brightness adjustment in `-1.0..1.0` | `0.0` |
+| `--contrast` | — | Contrast multiplier | `1.0` |
+| `--fps` | — | Frames per second (animated files only) | `30.0` |
 
 ## Alphabets
 
@@ -38,11 +45,15 @@ rustisay <gif_path> [options]
 
 ## Features
 
-- Animated GIF playback at configurable FPS
+- Animated playback (GIF, APNG, animated WebP) at configurable FPS, with frames decoded on demand
+- Static images render once; animated files loop forever
 - Customizable alphabets for different density/style
 - `--no-color` for monochrome terminal output
-- Progress bar during frame processing
+- Auto-fit to terminal size with centered output
 - Clean enter/exit of terminal alternate screen buffer
+- `--output` saves animation frames joined by form-feed characters (suitable for `cat` pagers)
+- `--output out.gif` renders each frame back into pixels with the font glyphs and encodes a real animated GIF, preserving the source frame delays
+- Parallel frame rendering (rayon)
 
 ## License
 

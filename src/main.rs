@@ -1,94 +1,57 @@
 use std::path::Path;
-use std::time::{Duration, Instant};
 
-use image::DynamicImage;
-use indicatif::ProgressIterator;
+use anyhow::{Context, Result};
+
+use crate::player::Player;
 
 mod alphabet;
 mod cli;
 mod convert;
 mod font;
-mod progress;
+mod gif;
+mod player;
+mod render;
+mod term;
 
-struct Terminal;
-
-impl Terminal {
-    fn enter_alt() {
-        print!("\x1b[?1049h");
-    }
-
-    fn exit_alt() {
-        print!("\x1b[?1049l");
-    }
-}
-
-impl Drop for Terminal {
-    fn drop(&mut self) {
-        Self::exit_alt();
-    }
-}
-
-fn main() {
-    let _term = Terminal;
-
-    Terminal::enter_alt();
-    ctrlc::set_handler(|| {
-        Terminal::exit_alt();
-        std::process::exit(0);
-    })
-    .expect("error setting Ctrl+C handler");
-
+fn main() -> Result<()> {
     let args = cli::parse();
 
     let image_path = Path::new(&args.image_path);
-    let alphabet = alphabet::resolve(&args.alphabet, Path::new("alphabets"));
+    let alphabet = alphabet::resolve(&args.alphabet, Path::new("alphabets"))?;
 
-    let font = font::Font::from_bdf_bytes(include_bytes!("../fonts/bitocra-13.bdf"), &alphabet, false);
+    let font =
+        font::Font::from_bdf_bytes(include_bytes!("../fonts/bitocra-13.bdf"), &alphabet, false)
+            .context("failed to load embedded font")?;
 
-    let frames: Vec<DynamicImage> = {
-        if image_path.extension().map(|e| e == "gif").unwrap_or(false) {
-            read_gif_frames(image_path)
-        } else {
-            vec![image::open(image_path).unwrap()]
-        }
+    let tone = convert::ToneAdjust {
+        invert: args.invert,
+        brightness: args.brightness,
+        contrast: args.contrast,
     };
 
-    let mut frame_char_rows: Vec<Vec<Vec<char>>> = Vec::new();
-    let progress = progress::default_progress_bar("Frames", frames.len());
-    for img in frames.iter().progress_with(progress) {
-        let ascii = convert::img_to_char_rows(&font, img, args.width);
-        frame_char_rows.push(ascii);
+    let bg = cli::parse_color(&args.bg_color)?;
+
+    let player = Player::new(&args, &font, image_path, &tone, bg, term::dimensions());
+
+    if let Some(output_path) = &args.output {
+        if args.gif || output_path.to_ascii_lowercase().ends_with(".gif") {
+            let frames = player.render_all_gif()?;
+            gif::encode(Path::new(output_path), frames, args.repeat)?;
+            return Ok(());
+        }
+
+        let output = player.render_all()?;
+        std::fs::write(output_path, output)
+            .with_context(|| format!("failed to write output '{}'", output_path))?;
+        return Ok(());
     }
 
-    let is_gif = frames.len() > 1;
+    let _term = term::Terminal::new();
+    ctrlc::set_handler(|| {
+        term::Terminal::exit_alt();
+        std::process::exit(0);
+    })
+    .context("error setting Ctrl+C handler")?;
 
-    loop {
-        for (char_rows, frame) in frame_char_rows.iter().zip(frames.iter()) {
-            let t0 = Instant::now();
-            let output = if args.no_color {
-                convert::char_rows_to_string(char_rows)
-            } else {
-                convert::char_rows_to_terminal_color_string(char_rows, frame)
-            };
-            print!("{}[2J{}", 27 as char, output);
-            let elapsed = t0.elapsed().as_secs_f64();
-            let delay = (1.0 / args.fps) - elapsed;
-            if delay > 0.0 {
-                std::thread::sleep(Duration::from_secs_f64(delay));
-            }
-        }
-        if !is_gif {
-            break;
-        }
-    }
-}
-
-fn read_gif_frames(path: &Path) -> Vec<DynamicImage> {
-    use image::codecs::gif::GifDecoder;
-    use image::AnimationDecoder;
-
-    let file = std::fs::File::open(path).unwrap();
-    let decoder = GifDecoder::new(file).unwrap();
-    let frames = decoder.into_frames().collect_frames().unwrap();
-    frames.iter().map(|f| DynamicImage::ImageRgba8(f.buffer().clone())).collect()
+    player.play()
 }
