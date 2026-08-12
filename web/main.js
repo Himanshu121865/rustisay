@@ -289,9 +289,8 @@ function onConvertResult(res) {
       `${art.width}×${art.height} chars, ${ms} ms`
     );
     idx = 0;
-    setView("text");
-    showFrame(0);
-    if (art.frames > 1) play();
+    setView("gif");
+    $("frame-count").textContent = `${1} / ${art.frames}`;
   } catch (err) {
     hideStage();
     showError(String(err));
