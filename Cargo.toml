@@ -7,12 +7,20 @@ readme = "README.md"
 license = "MIT"
 repository = "https://github.com/Himanshu121865/rustisay"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 anyhow = "1"
 clap = { version = "4.6.1", features = ["derive"] }
 image = "0.24"
 bdf-reader = "0.1"
 colored = "2"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ctrlc = "3.4"
 rayon = "1.10"
 terminal_size = "0.4"

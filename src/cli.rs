@@ -1,120 +1,63 @@
-use anyhow::{Result, bail};
 use clap::Parser;
-use image::Rgba;
+
+pub use crate::color::parse_color;
 
 #[derive(Parser)]
+#[command(
+    version,
+    about = "Convert images and animated GIFs/APNGs/WebPs to colored ASCII art in the terminal",
+    after_help = "EXAMPLES:\n  rustisay meme.gif                     # play ASCII animation in the terminal\n  rustisay photo.png -w 80 -o art.txt    # save plain ASCII text\n  rustisay anim.gif -o anim.gif          # save a real animated ASCII GIF\n  rustisay anim.gif -o out.gif --repeat 3 --bg-color '#101010'\n  rustisay img.png --output out.gif --gif # force GIF file output"
+)]
 pub struct Cli {
+    /// Path to an image, GIF, APNG, or animated WebP file
     pub image_path: String,
+
+    /// Character set to use (file in alphabets/, or a literal string)
     #[arg(short, long, default_value = "alphabet")]
     pub alphabet: String,
+
+    /// Output width in characters (defaults to fitting the image)
     #[arg(short, long)]
     pub width: Option<usize>,
+
+    /// Disable color (B&W output)
     #[arg(short, long)]
     pub no_color: bool,
+
+    /// Write output to a file instead of playing in the terminal;
+    /// a .gif extension writes a real animated GIF
     #[arg(short, long)]
     pub output: Option<String>,
+
+    /// Invert luminance (photo negative)
     #[arg(long, default_value_t = false)]
     pub invert: bool,
+
+    /// Brightness adjustment in -1.0..1.0
     #[arg(long, default_value_t = 0.0)]
     pub brightness: f32,
+
+    /// Contrast multiplier
     #[arg(long, default_value_t = 1.0)]
     pub contrast: f32,
+
+    /// Frames per second for terminal playback
     #[arg(long, default_value_t = 30.0)]
     pub fps: f64,
+
     /// Force GIF output regardless of the `--output` file extension
     #[arg(long, default_value_t = false)]
     pub gif: bool,
+
     /// Number of times a GIF output loops; 0 loops forever
     #[arg(long, default_value_t = 0)]
     pub repeat: u16,
+
     /// Background color of the GIF output, as hex (#RRGGBB) or black/white
     #[arg(long, default_value = "black")]
     pub bg_color: String,
 }
 
-/// Parses a hex color (`#rgb`, `#rrggbb`, or bare `rrggbb`) or the named
-/// colors `black` and `white` into an opaque RGBA pixel.
-pub fn parse_color(s: &str) -> Result<Rgba<u8>> {
-    let hex = s.strip_prefix('#').unwrap_or(s);
-    if hex.eq_ignore_ascii_case("black") {
-        return Ok(Rgba([0, 0, 0, 255]));
-    }
-    if hex.eq_ignore_ascii_case("white") {
-        return Ok(Rgba([255, 255, 255, 255]));
-    }
-    let digit = |c: char| -> Option<u8> {
-        match c {
-            '0'..='9' => Some(c as u8 - b'0'),
-            'a'..='f' => Some(c as u8 - b'a' + 10),
-            'A'..='F' => Some(c as u8 - b'A' + 10),
-            _ => None,
-        }
-    };
-    let channels = match hex.len() {
-        3 => Some(
-            hex.chars()
-                .map(|c| digit(c).map(|d| d * 17))
-                .collect::<Option<Vec<u8>>>()
-                .ok_or_else(|| anyhow::anyhow!("invalid hex digit"))?,
-        ),
-        6 => Some(
-            hex.chars()
-                .collect::<Vec<_>>()
-                .chunks(2)
-                .map(|pair| match (digit(pair[0]), digit(pair[1])) {
-                    (Some(hi), Some(lo)) => Some(hi * 16 + lo),
-                    _ => None,
-                })
-                .collect::<Option<Vec<u8>>>()
-                .ok_or_else(|| anyhow::anyhow!("invalid hex digit"))?,
-        ),
-        _ => None,
-    };
-    let Some(channels) = channels else {
-        bail!(
-            "invalid color '{}': expected #RRGGBB, #RGB, black, or white",
-            s
-        );
-    };
-    Ok(Rgba([channels[0], channels[1], channels[2], 255]))
-}
-
 pub fn parse() -> Cli {
     Cli::parse()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_full_hex() {
-        assert_eq!(
-            parse_color("#1a2b3c").unwrap(),
-            Rgba([0x1a, 0x2b, 0x3c, 255])
-        );
-    }
-
-    #[test]
-    fn parses_bare_hex() {
-        assert_eq!(parse_color("ff0000").unwrap(), Rgba([255, 0, 0, 255]));
-    }
-
-    #[test]
-    fn parses_short_hex() {
-        assert_eq!(parse_color("#abc").unwrap(), Rgba([0xaa, 0xbb, 0xcc, 255]));
-    }
-
-    #[test]
-    fn parses_named_colors() {
-        assert_eq!(parse_color("black").unwrap(), Rgba([0, 0, 0, 255]));
-        assert_eq!(parse_color("WHITE").unwrap(), Rgba([255, 255, 255, 255]));
-    }
-
-    #[test]
-    fn rejects_invalid_colors() {
-        assert!(parse_color("#12345").is_err());
-        assert!(parse_color("#xyz").is_err());
-        assert!(parse_color("").is_err());
-    }
 }

@@ -43,6 +43,45 @@ rustisay <image_path> [options]
 | `minimal.txt` | `/\!.*^_` |
 | `symbols.txt` | Punctuation and symbols |
 
+## Web demo & npm package
+
+Run in the browser, or use the same engine from JavaScript:
+
+```bash
+# rebuild the wasm package after changing Rust code
+wasm-pack build --target web --out-dir web/pkg
+
+# local demo server
+python3 -m http.server 8000 --directory web
+# → http://localhost:8000
+```
+
+The demo (drag & drop, controls, terminal-style text playback, GIF/TXT downloads) is
+self-contained in `web/`. The `web/pkg/` output is a publishable npm package:
+
+```bash
+cd web/pkg
+npm publish
+```
+
+JavaScript usage:
+
+```js
+import init, { ArtOptions, art_from_bytes } from "rustisay";
+await init();
+
+const opts = new ArtOptions();
+opts.width = 80;          // 0 = auto
+opts.charset = "letters"; // built-in, or any literal string
+opts.bg_color = "#101010";
+
+const art = art_from_bytes(bytes, "anim.gif", opts);
+// art.gif          → Uint8Array of the ASCII GIF
+// art.text_frames  → one string per frame (monochrome)
+// art.delays_ms    → per-frame playback delays
+// art.width/height → rendered char dimensions
+```
+
 ## Features
 
 - Animated playback (GIF, APNG, animated WebP) at configurable FPS, with frames decoded on demand
