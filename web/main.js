@@ -189,6 +189,11 @@ function hideDragOverlay() {
 
 /* ---------- controls ---------- */
 
+$("ctl-width").addEventListener("input", (e) => {
+  const v = Number(e.target.value) || 0;
+  $("out-width").textContent = v === 0 ? "auto" : String(v);
+  scheduleConvert();
+});
 $("ctl-brightness").addEventListener("input", (e) => {
   $("out-brightness").textContent = Number(e.target.value).toFixed(2);
   scheduleConvert();
@@ -198,7 +203,7 @@ $("ctl-contrast").addEventListener("input", (e) => {
   scheduleConvert();
 });
 
-["ctl-width", "ctl-charset", "ctl-invert", "ctl-bw", "ctl-repeat"].forEach((id) => {
+["ctl-charset", "ctl-invert", "ctl-bw", "ctl-repeat"].forEach((id) => {
   $(id).addEventListener("input", scheduleConvert);
 });
 ["ctl-bg"].forEach((id) => {
