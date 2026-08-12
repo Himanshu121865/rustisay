@@ -340,20 +340,6 @@ main {
   cursor: pointer;
 }
 
-#btn-convert {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #06121a;
-  border: none;
-  border-radius: 10px;
-  padding: 0.55rem 1.4rem;
-  font: 700 0.95rem system-ui, sans-serif;
-  cursor: pointer;
-  box-shadow: 0 4px 20px rgba(95, 212, 244, 0.25);
-  transition: transform 0.12s, box-shadow 0.12s, filter 0.12s;
-}
-#btn-convert:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
-#btn-convert:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
-
 /* ---------- status bar ---------- */
 
 #status {

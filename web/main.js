@@ -104,8 +104,8 @@ function loadFile(file) {
     fileName = label;
     fileBytes = buf;
     setPreview(file, buf);
-    $("btn-convert").disabled = false;
-    setStatus(`${label} ready — tweak the settings and hit Convert`);
+    setStatus(`${label} loaded — converting…`);
+    scheduleConvert();
   });
 }
 
@@ -170,7 +170,7 @@ function clearFile() {
   fileBytes = null;
   fileName = null;
   art = null;
-  $("btn-convert").disabled = true;
+  clearTimeout(convertTimer);
   $("btn-play").disabled = true;
   $("btn-dl-gif").disabled = true;
   $("btn-dl-txt").disabled = true;
@@ -191,19 +191,29 @@ function hideDragOverlay() {
 
 $("ctl-brightness").addEventListener("input", (e) => {
   $("out-brightness").textContent = Number(e.target.value).toFixed(2);
+  scheduleConvert();
 });
 $("ctl-contrast").addEventListener("input", (e) => {
   $("out-contrast").textContent = Number(e.target.value).toFixed(2);
+  scheduleConvert();
 });
 
-["ctl-width", "ctl-charset", "ctl-brightness", "ctl-contrast",
- "ctl-invert", "ctl-bw", "ctl-bg", "ctl-repeat"].forEach((id) => {
-  $(id).addEventListener("input", () => {
-    if (fileBytes) $("btn-convert").disabled = false;
-  });
+["ctl-width", "ctl-charset", "ctl-invert", "ctl-bw", "ctl-repeat"].forEach((id) => {
+  $(id).addEventListener("input", scheduleConvert);
+});
+["ctl-bg"].forEach((id) => {
+  $(id).addEventListener("change", scheduleConvert);
 });
 
-$("btn-convert").addEventListener("click", convert);
+let convertTimer = null;
+function scheduleConvert() {
+  clearTimeout(convertTimer);
+  if (!fileBytes) return;
+  convertTimer = setTimeout(() => {
+    convert();
+    convertTimer = null;
+  }, 200);
+}
 $("ctl-speed").addEventListener("change", (e) => {
   speed = Number(e.target.value);
   if (playing) scheduleNext();
