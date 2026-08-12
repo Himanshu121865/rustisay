@@ -11,8 +11,23 @@ let idx = 0;
 let speed = 1;
 let view = "text";
 let previewUrl = null;
+let wasmReady = null;
 
-await init();
+const BASE_URL = new URL(".", import.meta.url);
+
+async function ensureEngine() {
+  if (!wasmReady) {
+    wasmReady = init().catch((err) => {
+      wasmReady = null;
+      throw new Error(
+        "Could not load the WebAssembly engine. " +
+          "If you opened this file directly (file://), serve it over http(s) instead. " +
+          "(" + err + ")"
+      );
+    });
+  }
+  return wasmReady;
+}
 
 /* ---------- dropzone / file picker ---------- */
 
@@ -63,8 +78,11 @@ $("btn-clear").addEventListener("click", (e) => {
 });
 $("btn-sample").addEventListener("click", (e) => {
   e.stopPropagation();
-  fetch("sample.gif")
-    .then((r) => r.arrayBuffer())
+  fetch(new URL("sample.gif", BASE_URL))
+    .then((r) => {
+      if (!r.ok) throw new Error(`sample.gif: HTTP ${r.status}`);
+      return r.arrayBuffer();
+    })
     .then((buf) => {
       loadFile({ name: "sample.gif", size: buf.byteLength, data: new Uint8Array(buf) });
     })
@@ -208,6 +226,10 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+window.addEventListener("unhandledrejection", (e) => {
+  console.warn("rustisay:", e.reason);
+});
+
 function currentOptions() {
   const opts = new ArtOptions();
   opts.width = Math.max(0, parseInt($("ctl-width").value, 10) || 0);
@@ -225,6 +247,16 @@ function currentOptions() {
 
 function convert() {
   if (!fileBytes) return;
+  ensureEngine()
+    .then(() => doConvert())
+    .catch((err) => {
+      hideStage();
+      showError(String(err));
+      setStatus("Conversion failed");
+    });
+}
+
+function doConvert() {
   stopPlayback();
   hideError();
   hideStage();
