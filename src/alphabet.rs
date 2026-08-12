@@ -43,6 +43,7 @@ pub fn embedded(name: &str) -> Vec<char> {
         "minimal" => include_str!("../alphabets/minimal.txt"),
         "symbols" => include_str!("../alphabets/symbols.txt"),
         "uppercase" => include_str!("../alphabets/uppercase.txt"),
+        "block" => include_str!("../alphabets/block.txt"),
         _ => name,
     }
     .chars()
@@ -56,6 +57,7 @@ mod tests {
     #[test]
     fn embedded_names_resolve() {
         assert_eq!(embedded("fast"), vec!['#']);
+        assert_eq!(embedded("block"), vec!['█']);
         assert_eq!(
             embedded("uppercase"),
             " ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect::<Vec<_>>()

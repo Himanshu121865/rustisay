@@ -35,6 +35,7 @@ rustisay <image_path> [options]
 
 | File | Characters |
 |---|---|
+| `block.txt` | Solid block `█` (best for colored output) |
 | `alphabet.txt` | Full printable set (`!"#$...xyz{~}`) |
 | `fast.txt` | Single `#` character |
 | `letters.txt` | Upper and lowercase letters |

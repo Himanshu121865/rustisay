@@ -113,7 +113,7 @@ impl Font {
             .glyphs()
             .into_iter()
             .filter_map(|glyph| {
-                let value: char = glyph.encoding() as u8 as char;
+                let value: char = char::from_u32(glyph.encoding())?;
                 if !alphabet.contains(&value) {
                     return None;
                 }
@@ -135,7 +135,7 @@ impl Font {
             })
             .collect();
 
-        chars.sort_by_key(|c| c.value as u8);
+        chars.sort_by_key(|c| c.value as u32);
 
         let first = chars
             .first()

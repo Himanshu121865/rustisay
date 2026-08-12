@@ -47,7 +47,7 @@ impl ArtOptions {
             contrast: 1.0,
             repeat: 0,
             bg_color: "black".into(),
-            charset: "alphabet".into(),
+            charset: "block".into(),
         }
     }
 
