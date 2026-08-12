@@ -1,5 +1,3 @@
-import init, { ArtOptions, art_from_bytes } from "./pkg/rustisay.js";
-
 const $ = (id) => document.getElementById(id);
 
 let art = null;
@@ -11,23 +9,18 @@ let idx = 0;
 let speed = 1;
 let view = "text";
 let previewUrl = null;
-let wasmReady = null;
+let reqId = 0;
+let convertStarted = 0;
 
 const BASE_URL = new URL(".", import.meta.url);
 
-async function ensureEngine() {
-  if (!wasmReady) {
-    wasmReady = init().catch((err) => {
-      wasmReady = null;
-      throw new Error(
-        "Could not load the WebAssembly engine. " +
-          "If you opened this file directly (file://), serve it over http(s) instead. " +
-          "(" + err + ")"
-      );
-    });
-  }
-  return wasmReady;
-}
+const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+worker.onmessage = (e) => onConvertResult(e.data);
+worker.onerror = (e) => {
+  hideStage();
+  showError("The conversion worker crashed: " + (e.message || e));
+  setStatus("Conversion failed");
+};
 
 /* ---------- dropzone / file picker ---------- */
 
@@ -152,6 +145,7 @@ function setPreview(file, bytes) {
 
 function clearFile() {
   stopPlayback();
+  reqId++;
   hideStage();
   dropzone.classList.remove("has-file");
   $("dz-icon").hidden = false;
@@ -246,62 +240,63 @@ window.addEventListener("unhandledrejection", (e) => {
 });
 
 function currentOptions() {
-  const opts = new ArtOptions();
-  opts.width = Math.max(0, parseInt($("ctl-width").value, 10) || 0);
-  opts.no_color = $("ctl-bw").checked;
-  opts.invert = $("ctl-invert").checked;
-  opts.brightness = Number($("ctl-brightness").value);
-  opts.contrast = Number($("ctl-contrast").value);
-  opts.bg_color = $("ctl-bg").value.trim() || "black";
-  opts.repeat = Math.min(65535, Math.max(0, parseInt($("ctl-repeat").value, 10) || 0));
-  opts.charset = $("ctl-charset").value;
-  return opts;
+  return {
+    width: Math.max(0, parseInt($("ctl-width").value, 10) || 0),
+    no_color: $("ctl-bw").checked,
+    invert: $("ctl-invert").checked,
+    brightness: Number($("ctl-brightness").value),
+    contrast: Number($("ctl-contrast").value),
+    bg_color: $("ctl-bg").value.trim() || "black",
+    repeat: Math.min(65535, Math.max(0, parseInt($("ctl-repeat").value, 10) || 0)),
+    charset: $("ctl-charset").value,
+  };
 }
 
 /* ---------- conversion ---------- */
 
 function convert() {
   if (!fileBytes) return;
-  ensureEngine()
-    .then(() => doConvert())
-    .catch((err) => {
-      hideStage();
-      showError(String(err));
-      setStatus("Conversion failed");
-    });
-}
-
-function doConvert() {
   stopPlayback();
   hideError();
   hideStage();
   setStatus("Converting…");
-  setTimeout(() => {
-    try {
-      const t0 = performance.now();
-      art = art_from_bytes(fileBytes, fileName, currentOptions());
-      const ms = (performance.now() - t0).toFixed(0);
-      $("ctl-frame").max = art.frames - 1;
-      $("ctl-frame").value = 0;
-      $("timeline").hidden = art.frames < 2;
-      $("view-toggle").hidden = false;
-      $("btn-play").disabled = false;
-      $("btn-dl-gif").disabled = false;
-      $("btn-dl-txt").disabled = false;
-      $("gif-preview").src = gifUrl();
-      setStatus(
-        `Converted ${fileName} — ${art.frames} frame${art.frames === 1 ? "" : "s"}, ` +
-        `${art.width}×${art.height} chars, ${ms} ms`
-      );
-      idx = 0;
-      setView("text");
-      showFrame(0);
-      if (art.frames > 1) play();
-    } catch (err) {
-      showError(String(err));
-      setStatus("Conversion failed");
-    }
-  });
+  const id = ++reqId;
+  convertStarted = performance.now();
+  worker.postMessage({ id, bytes: fileBytes, filename: fileName, opts: currentOptions() });
+}
+
+function onConvertResult(res) {
+  if (res.id !== reqId) return;
+  if (!res.ok) {
+    hideStage();
+    showError(String(res.error));
+    setStatus("Conversion failed");
+    return;
+  }
+  try {
+    const ms = (performance.now() - convertStarted).toFixed(0);
+    art = res;
+    $("ctl-frame").max = art.frames - 1;
+    $("ctl-frame").value = 0;
+    $("timeline").hidden = art.frames < 2;
+    $("view-toggle").hidden = false;
+    $("btn-play").disabled = false;
+    $("btn-dl-gif").disabled = false;
+    $("btn-dl-txt").disabled = false;
+    $("gif-preview").src = gifUrl();
+    setStatus(
+      `Converted ${fileName} — ${art.frames} frame${art.frames === 1 ? "" : "s"}, ` +
+      `${art.width}×${art.height} chars, ${ms} ms`
+    );
+    idx = 0;
+    setView("text");
+    showFrame(0);
+    if (art.frames > 1) play();
+  } catch (err) {
+    hideStage();
+    showError(String(err));
+    setStatus("Conversion failed");
+  }
 }
 
 /* ---------- playback ---------- */
