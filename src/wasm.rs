@@ -9,6 +9,7 @@ use std::io::Cursor;
 use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
+use image::GenericImageView;
 use image::codecs::gif::GifDecoder;
 use image::codecs::png::PngDecoder;
 use image::codecs::webp::WebPDecoder;
@@ -88,6 +89,7 @@ impl ArtOptions {
 pub struct Art {
     gif: Vec<u8>,
     text_frames: Vec<String>,
+    text_frames_color: Vec<String>,
     delays_ms: Vec<f64>,
     frames: usize,
     width: u32,
@@ -104,6 +106,11 @@ impl Art {
     #[wasm_bindgen(getter)]
     pub fn text_frames(&self) -> Vec<String> {
         self.text_frames.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn text_frames_color(&self) -> Vec<String> {
+        self.text_frames_color.clone()
     }
 
     #[wasm_bindgen(getter)]
@@ -169,11 +176,13 @@ fn convert(input: &[u8], filename: &str, opts: &ArtOptions) -> Result<Art> {
 
     let mut arts = Vec::with_capacity(frames.len());
     let mut text_frames = Vec::with_capacity(frames.len());
+    let mut text_frames_color = Vec::with_capacity(frames.len());
     let mut delays_ms = Vec::with_capacity(frames.len());
     for (img, delay) in frames {
         let char_rows = img_to_char_rows(&font, &img, width, None, &tone);
         let art = render_char_grid(&font, &glyphs, &char_rows, &img, &tone, opts.no_color, bg);
         text_frames.push(char_rows_to_string(&char_rows));
+        text_frames_color.push(char_rows_to_truecolor_string(&char_rows, &img, &tone));
         delays_ms.push(delay.as_millis() as f64);
         arts.push((art, delay));
     }
@@ -191,8 +200,49 @@ fn convert(input: &[u8], filename: &str, opts: &ArtOptions) -> Result<Art> {
         width,
         height,
         text_frames,
+        text_frames_color,
         delays_ms,
     })
+}
+
+/// Like the terminal renderer, but emits truecolor SGR codes
+/// (`\x1b[38;2;R;G;Bm`) that browsers and terminals both understand.
+fn char_rows_to_truecolor_string(
+    char_rows: &[Vec<char>],
+    img: &DynamicImage,
+    tone: &ToneAdjust,
+) -> String {
+    if char_rows.is_empty() || char_rows[0].is_empty() {
+        return String::new();
+    }
+
+    let n_cols = char_rows[0].len();
+    let n_rows = char_rows.len();
+    let color_img = img.resize_exact(
+        n_cols as u32,
+        n_rows as u32,
+        image::imageops::FilterType::Nearest,
+    );
+
+    let mut out = String::new();
+    let mut prev: Option<[u8; 3]> = None;
+    for (j, row) in char_rows.iter().enumerate() {
+        for (i, &c) in row.iter().enumerate() {
+            let fg = crate::convert::colorize_pixel(&color_img.get_pixel(i as u32, j as u32), tone);
+            let rgb = [fg[0], fg[1], fg[2]];
+            if prev != Some(rgb) {
+                out.push_str(&format!("\x1b[38;2;{};{};{}m", rgb[0], rgb[1], rgb[2]));
+                prev = Some(rgb);
+            }
+            out.push(c);
+        }
+        if j < n_rows - 1 {
+            out.push('\n');
+            prev = None;
+        }
+    }
+    out.push_str("\x1b[0m");
+    out
 }
 
 /// Decodes animated formats from bytes; returns `None` for static images.

@@ -8,65 +8,91 @@
 </head>
 <body>
   <header>
-    <h1>rustisay <span>web demo</span></h1>
-    <p>Images, GIFs, APNGs and animated WebPs → colored ASCII art in your terminal — now in your browser.</p>
+    <div class="logo">
+      <span class="logo-mark">#</span>
+      <div>
+        <h1>rustisay</h1>
+        <p class="tagline">Images · GIFs · APNGs · WebP → colored ASCII art, in your browser.</p>
+      </div>
+    </div>
+    <a class="gh-link" href="https://github.com/Himanshu121865/rustisay" target="_blank" rel="noopener">GitHub ↗</a>
   </header>
 
   <main>
-    <section id="dropzone" tabindex="0">
-      <p>Drop an image, GIF, APNG or WebP here</p>
-      <p class="hint">or click to browse</p>
+    <section id="dropzone" tabindex="0" role="button" aria-label="Upload an image">
+      <div class="dz-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M12 16V4m0 0l-4 4m4-4l4 4" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke-linecap="round" />
+        </svg>
+      </div>
+      <p class="dz-main">Drop an image, GIF, APNG or WebP here</p>
+      <p class="dz-sub">or click to browse</p>
+      <p class="dz-file" id="file-chip" hidden></p>
       <input type="file" id="file-input" accept="image/*,.gif,.apng,.webp,.png,.jpg,.jpeg,.bmp" hidden />
     </section>
 
     <section id="controls">
-      <label>Width (0 = auto)
+      <label>Width <em>(0 = auto)</em>
         <input type="number" id="ctl-width" value="0" min="0" max="400" />
       </label>
       <label>Charset
         <select id="ctl-charset">
           <option value="alphabet" selected>alphabet</option>
-          <option value="fast">fast</option>
+          <option value="fast">fast · #</option>
           <option value="letters">letters</option>
           <option value="lowercase">lowercase</option>
           <option value="minimal">minimal</option>
           <option value="symbols">symbols</option>
-          <option value="uppercase">uppercase</option>
+          <option value="uppercase">UPPERCASE</option>
         </select>
       </label>
-      <label>Brightness
+      <label>Brightness <output id="out-brightness">0.00</output>
         <input type="range" id="ctl-brightness" value="0" min="-1" max="1" step="0.05" />
-        <output id="out-brightness">0.00</output>
       </label>
-      <label>Contrast
+      <label>Contrast <output id="out-contrast">1.00</output>
         <input type="range" id="ctl-contrast" value="1" min="0.1" max="3" step="0.1" />
-        <output id="out-contrast">1.00</output>
       </label>
       <label class="check"><input type="checkbox" id="ctl-invert" /> Invert</label>
       <label class="check"><input type="checkbox" id="ctl-bw" /> Monochrome</label>
-      <label>GIF bg color
-        <input type="text" id="ctl-bg" value="black" size="14" spellcheck="false" />
+      <label>GIF bg <em>hex/color</em>
+        <input type="text" id="ctl-bg" value="black" size="10" spellcheck="false" placeholder="#101010" />
       </label>
-      <label>GIF repeat
+      <label>Repeat <em>(0 = ∞)</em>
         <input type="number" id="ctl-repeat" value="0" min="0" max="65535" />
       </label>
-      <button id="btn-convert" disabled>Convert</button>
+      <button id="btn-convert" type="button" disabled>Convert</button>
     </section>
 
     <section id="status" hidden>
       <div id="stat-text"></div>
-      <div id="actions">
-        <button id="btn-play" disabled>Play</button>
-        <button id="btn-dl-gif" disabled>Download GIF</button>
-        <button id="btn-dl-txt" disabled>Download TXT</button>
+      <div id="view-toggle" hidden>
+        <button type="button" id="tab-text" class="tab active">Text</button>
+        <button type="button" id="tab-gif" class="tab">GIF</button>
       </div>
-      <div id="frame-count"></div>
+      <div id="actions">
+        <button type="button" id="btn-play" disabled>Play</button>
+        <select id="ctl-speed" title="Playback speed" aria-label="Playback speed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+        </select>
+        <button type="button" id="btn-dl-gif" disabled>GIF ↓</button>
+        <button type="button" id="btn-dl-txt" disabled>TXT ↓</button>
+      </div>
     </section>
 
     <section id="stage">
       <pre id="pre" hidden></pre>
+      <img id="gif-preview" hidden alt="Converted ASCII GIF preview" />
       <p id="error" hidden></p>
     </section>
+
+    <div id="timeline" hidden>
+      <input type="range" id="ctl-frame" min="0" max="0" value="0" aria-label="Frame" />
+      <span id="frame-count"></span>
+    </div>
   </main>
 
   <script type="module" src="main.js"></script>
