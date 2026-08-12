@@ -20,17 +20,41 @@
 
   <main>
     <section id="dropzone" tabindex="0" role="button" aria-label="Upload an image">
-      <div class="dz-icon" aria-hidden="true">
+      <div class="dz-icon" id="dz-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M12 16V4m0 0l-4 4m4-4l4 4" stroke-linecap="round" stroke-linejoin="round" />
           <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke-linecap="round" />
         </svg>
       </div>
-      <p class="dz-main">Drop an image, GIF, APNG or WebP here</p>
-      <p class="dz-sub">or click to browse</p>
-      <p class="dz-file" id="file-chip" hidden></p>
+      <img id="file-preview" alt="Selected file preview" hidden />
+      <div class="dz-text">
+        <p class="dz-main" id="dz-main">Drop an image, GIF, APNG or WebP here</p>
+        <p class="dz-sub" id="dz-sub">or click to browse</p>
+        <p class="dz-file" id="file-chip" hidden></p>
+        <p class="dz-meta" id="file-meta" hidden></p>
+        <div class="dz-row" id="dz-row" hidden>
+          <button type="button" id="btn-clear" class="dz-link danger" hidden>✕ Clear</button>
+        </div>
+      </div>
       <input type="file" id="file-input" accept="image/*,.gif,.apng,.webp,.png,.jpg,.jpeg,.bmp" hidden />
     </section>
+
+    <div id="drag-overlay" hidden>
+      <div class="drag-card">
+        <div class="drag-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 16V4m0 0l-4 4m4-4l4 4" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke-linecap="round" />
+          </svg>
+        </div>
+        <p>Drop to convert</p>
+      </div>
+    </div>
+
+    <div class="sample-row">
+      <span>No file handy?</span>
+      <button type="button" id="btn-sample">Use the sample GIF ↗</button>
+    </div>
 
     <section id="controls">
       <label>Width <em>(0 = auto)</em>

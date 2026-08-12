@@ -10,12 +10,15 @@ let timer = null;
 let idx = 0;
 let speed = 1;
 let view = "text";
+let previewUrl = null;
 
 await init();
 
 /* ---------- dropzone / file picker ---------- */
 
 const dropzone = $("dropzone");
+let dragDepth = 0;
+
 dropzone.addEventListener("click", () => $("file-input").click());
 dropzone.addEventListener("keydown", (e) => {
   if (e.key === "Enter" || e.key === " ") {
@@ -26,20 +29,49 @@ dropzone.addEventListener("keydown", (e) => {
 $("file-input").addEventListener("change", (e) => {
   if (e.target.files[0]) loadFile(e.target.files[0]);
 });
+
 ["dragenter", "dragover"].forEach((ev) =>
-  dropzone.addEventListener(ev, (e) => {
+  window.addEventListener(ev, (e) => {
     e.preventDefault();
-    dropzone.classList.add("dragover");
+    dragDepth++;
+    showDragOverlay();
   })
 );
-["dragleave", "drop"].forEach((ev) =>
-  dropzone.addEventListener(ev, (e) => {
+["dragleave"].forEach((ev) =>
+  window.addEventListener(ev, (e) => {
     e.preventDefault();
-    dropzone.classList.remove("dragover");
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) hideDragOverlay();
   })
 );
+window.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  hideDragOverlay();
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
 dropzone.addEventListener("drop", (e) => {
   if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+["dragenter", "dragover", "dragleave"].forEach((ev) =>
+  dropzone.addEventListener(ev, (e) => e.preventDefault())
+);
+
+$("btn-clear").addEventListener("click", (e) => {
+  e.stopPropagation();
+  clearFile();
+});
+$("btn-sample").addEventListener("click", (e) => {
+  e.stopPropagation();
+  fetch("sample.gif")
+    .then((r) => r.arrayBuffer())
+    .then((buf) => {
+      loadFile({ name: "sample.gif", size: buf.byteLength, data: new Uint8Array(buf) });
+    })
+    .catch((err) => showError(String(err)));
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && fileBytes && e.target === document.body) clearFile();
 });
 
 function loadFile(file) {
@@ -48,14 +80,93 @@ function loadFile(file) {
   hideStage();
   fileBytes = null;
   art = null;
-  fileName = file.name;
-  $("file-chip").textContent = `${file.name} · ${(file.size / 1024).toFixed(1)} KiB`;
-  $("file-chip").hidden = false;
-  file.arrayBuffer().then((buf) => {
-    fileBytes = new Uint8Array(buf);
+  const label = file.name || "sample.gif";
+  setStatus(`Reading ${label}…`);
+  readFile(file).then((buf) => {
+    fileName = label;
+    fileBytes = buf;
+    setPreview(file, buf);
     $("btn-convert").disabled = false;
-    setStatus(`${fileName} ready — tweak the settings and hit Convert`);
+    setStatus(`${label} ready — tweak the settings and hit Convert`);
   });
+}
+
+function readFile(file) {
+  if (file.data) return Promise.resolve(file.data);
+  return file.arrayBuffer().then((b) => new Uint8Array(b));
+}
+
+function setPreview(file, bytes) {
+  const type = (file.type || "").toLowerCase();
+  const ext = fileName.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
+  const isImage =
+    type.startsWith("image/") ||
+    ["gif", "apng", "png", "jpg", "jpeg", "webp", "bmp", "ico", "avif"].includes(ext);
+
+  dropzone.classList.add("has-file");
+  $("dz-icon").hidden = true;
+
+  if (isImage) {
+    previewUrl = URL.createObjectURL(new Blob([bytes], { type: type || "image/" + ext }));
+    const img = $("file-preview");
+    img.onload = () => {
+      $("file-meta").textContent =
+        `${img.naturalWidth}×${img.naturalHeight} px · ${(bytes.length / 1024).toFixed(1)} KiB · ` +
+        (ext ? ext.toUpperCase() : type.split("/")[1] || "image");
+      $("file-meta").hidden = false;
+    };
+    img.src = previewUrl;
+    img.hidden = false;
+  } else {
+    previewUrl = null;
+    $("file-preview").hidden = true;
+    $("file-meta").textContent = `${(bytes.length / 1024).toFixed(1)} KiB · ${ext || "unknown format"}`;
+    $("file-meta").hidden = false;
+  }
+
+  $("dz-main").textContent = fileName;
+  $("dz-sub").textContent = "click to change · Esc to clear";
+  $("file-chip").hidden = true;
+  $("btn-clear").hidden = false;
+  $("dz-row").hidden = false;
+  $("file-input").value = "";
+}
+
+function clearFile() {
+  stopPlayback();
+  hideStage();
+  dropzone.classList.remove("has-file");
+  $("dz-icon").hidden = false;
+  $("file-preview").hidden = true;
+  $("file-meta").hidden = true;
+  $("file-chip").hidden = true;
+  $("btn-clear").hidden = true;
+  $("dz-row").hidden = true;
+  $("dz-main").textContent = "Drop an image, GIF, APNG or WebP here";
+  $("dz-sub").textContent = "or click to browse";
+  $("file-input").value = "";
+  if (previewUrl) {
+    URL.revokeObjectURL(previewUrl);
+    previewUrl = null;
+  }
+  fileBytes = null;
+  fileName = null;
+  art = null;
+  $("btn-convert").disabled = true;
+  $("btn-play").disabled = true;
+  $("btn-dl-gif").disabled = true;
+  $("btn-dl-txt").disabled = true;
+  $("timeline").hidden = true;
+  $("view-toggle").hidden = true;
+  setStatus("Waiting for an image…");
+}
+
+function showDragOverlay() {
+  $("drag-overlay").hidden = false;
+}
+
+function hideDragOverlay() {
+  $("drag-overlay").hidden = true;
 }
 
 /* ---------- controls ---------- */
