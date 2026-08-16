@@ -1,6 +1,7 @@
 # rustisay
 
-Convert images and animated GIFs/APNGs/WebPs to colored ASCII art in the terminal.
+Turn images and GIF/APNG/WebP animations into colored ASCII art —
+in your terminal or right in the browser.
 
 ## Install
 
@@ -8,34 +9,47 @@ Convert images and animated GIFs/APNGs/WebPs to colored ASCII art in the termina
 cargo install rustisay
 ```
 
+that's it.
+
 ## Usage
 
-```bash
-rustisay <image_path> [options]
 ```
+rustisay image.gif                # colored ASCII art, animates in the terminal
+rustisay photo.jpg                # static images work too
+rustisay image.gif --no-color     # turn color off → clean b&w
+rustisay image.gif -a letters     # pick a character set
+rustisay anim.gif -o out.gif      # save a real animated GIF
+```
+
+`-o out.gif` encodes the art back into pixels with the font glyphs and
+writes a proper animated GIF, preserving the source frame delays. No
+palette drift between frames — one global color palette for the whole
+animation.
 
 ## Options
 
 | Flag | Short | Description | Default |
 |---|---|---|---|
-| `<image_path>` | — | Path to image, GIF, APNG, or animated WebP file | **(required)** |
+| `<image_path>` | — | Image, GIF, APNG, or animated WebP | **(required)** |
 | `--alphabet` | `-a` | Character set to use | `alphabet` |
 | `--width` | `-w` | Output width in characters | auto |
-| `--no-color` | `-n` | Disable color (B&W output) | `false` |
-| `--output` | `-o` | Write ASCII art to a file (no terminal playback); `.gif` extension writes a real animated GIF | — |
-| `--gif` | — | Force GIF output regardless of the `--output` file extension | `false` |
-| `--repeat` | — | Loop count for GIF output; `0` loops forever | `0` |
-| `--bg-color` | — | Background color of the GIF output (`#RRGGBB`, `#RGB`, `black`, `white`) | `black` |
+| `--no-color` | `-n` | Disable color (b&w output) | `false` |
+| `--output` | `-o` | Write to a file; `.gif` extension → real animated GIF | — |
+| `--gif` | — | Force GIF output regardless of the file extension | `false` |
+| `--repeat` | — | Loop count, `0` = forever | `0` |
+| `--bg-color` | — | GIF background (`#RRGGBB`, `#RGB`, `black`, `white`) | `black` |
 | `--invert` | — | Invert luminance (photo negative) | `false` |
-| `--brightness` | — | Brightness adjustment in `-1.0..1.0` | `0.0` |
+| `--brightness` | — | Brightness in `-1.0..1.0` | `0.0` |
 | `--contrast` | — | Contrast multiplier | `1.0` |
-| `--fps` | — | Frames per second (animated files only) | `30.0` |
+| `--fps` | — | Playback fps (animated files only) | `30.0` |
 
 ## Alphabets
 
+Pick your text style with `-a`:
+
 | File | Characters |
 |---|---|
-| `block.txt` | Solid block `█` (best for colored output) |
+| `block.txt` | Solid block `█` — best for colored output |
 | `alphabet.txt` | Full printable set (`!"#$...xyz{~}`) |
 | `fast.txt` | Single `#` character |
 | `letters.txt` | Upper and lowercase letters |
@@ -44,56 +58,20 @@ rustisay <image_path> [options]
 | `minimal.txt` | `/\!.*^_` |
 | `symbols.txt` | Punctuation and symbols |
 
-## Web demo & npm package
+## The web version
 
-Run in the browser, or use the same engine from JavaScript:
+The exact same engine, compiled to WebAssembly with wasm-pack. Live
+demo — no install, drag & drop, sliders, terminal-style playback,
+GIF/TXT downloads:
 
-```bash
-# rebuild the wasm package after changing Rust code
-wasm-pack build --target web --out-dir web/pkg
+**https://himanshu121865.github.io/rustisay/**
 
-# local demo server
-python3 -m http.server 8000 --directory web
-# → http://localhost:8000
-```
-
-The demo (drag & drop, controls, terminal-style text playback, GIF/TXT downloads) is
-self-contained in `web/`. The `web/pkg/` output is a publishable npm package:
+The `web/pkg/` output is also a publishable npm package:
 
 ```bash
 cd web/pkg
 npm publish
 ```
-
-JavaScript usage:
-
-```js
-import init, { ArtOptions, art_from_bytes } from "rustisay";
-await init();
-
-const opts = new ArtOptions();
-opts.width = 80;          // 0 = auto
-opts.charset = "letters"; // built-in, or any literal string
-opts.bg_color = "#101010";
-
-const art = art_from_bytes(bytes, "anim.gif", opts);
-// art.gif          → Uint8Array of the ASCII GIF
-// art.text_frames  → one string per frame (monochrome)
-// art.delays_ms    → per-frame playback delays
-// art.width/height → rendered char dimensions
-```
-
-## Features
-
-- Animated playback (GIF, APNG, animated WebP) at configurable FPS, with frames decoded on demand
-- Static images render once; animated files loop forever
-- Customizable alphabets for different density/style
-- `--no-color` for monochrome terminal output
-- Auto-fit to terminal size with centered output
-- Clean enter/exit of terminal alternate screen buffer
-- `--output` saves animation frames joined by form-feed characters (suitable for `cat` pagers)
-- `--output out.gif` renders each frame back into pixels with the font glyphs and encodes a real animated GIF, preserving the source frame delays
-- Parallel frame rendering (rayon)
 
 ## License
 
