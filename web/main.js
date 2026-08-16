@@ -71,7 +71,7 @@ $("btn-clear").addEventListener("click", (e) => {
 });
 $("btn-sample").addEventListener("click", (e) => {
   e.stopPropagation();
-  fetch(new URL("sample.gif", BASE_URL))
+  fetch(`${new URL("sample.gif", BASE_URL)}?v=2`)
     .then((r) => {
       if (!r.ok) throw new Error(`sample.gif: HTTP ${r.status}`);
       return r.arrayBuffer();
