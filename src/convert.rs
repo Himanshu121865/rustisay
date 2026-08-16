@@ -1,78 +1,8 @@
-use std::f32::consts::PI;
-
 use image::DynamicImage;
 use image::GenericImageView;
 use image::imageops::FilterType;
 
 use crate::font::Font;
-
-fn gaussian_kernel(sigma: f32, size: isize) -> Vec<f32> {
-    let a = 2.0 * sigma.powi(2);
-    let b = 1.0 / (PI * a).sqrt();
-    let mut kernel: Vec<f32> = (-size..=size)
-        .map(|x| b * (x.pow(2) as f32 / -a).exp())
-        .collect();
-    let sum: f32 = kernel.iter().sum();
-    kernel.iter_mut().for_each(|v| *v /= sum);
-    kernel
-}
-
-fn convolve_1d(pixels: &mut [f32], w: usize, h: usize, kernel: &[f32], horizontal: bool) {
-    let offset = ((kernel.len() - 1) / 2) as isize;
-    let mut out = vec![0.0; pixels.len()];
-    if horizontal {
-        for y in 0..h {
-            for x in 0..w {
-                let mut total = 0.0;
-                for (kx, &k) in kernel.iter().enumerate() {
-                    let sx = x as isize + kx as isize - offset;
-                    if sx >= 0 && sx < w as isize {
-                        total += pixels[y * w + sx as usize] * k;
-                    }
-                }
-                out[y * w + x] = total;
-            }
-        }
-    } else {
-        for y in 0..h {
-            for x in 0..w {
-                let mut total = 0.0;
-                for (ky, &k) in kernel.iter().enumerate() {
-                    let sy = y as isize + ky as isize - offset;
-                    if sy >= 0 && sy < h as isize {
-                        total += pixels[sy as usize * w + x] * k;
-                    }
-                }
-                out[y * w + x] = total;
-            }
-        }
-    }
-    pixels.copy_from_slice(&out);
-}
-
-fn gaussian_blur(pixels: &mut [f32], w: usize, h: usize, sigma: f32) {
-    let size = (sigma * 2.0).ceil() as isize;
-    let kernel = gaussian_kernel(sigma, size);
-    convolve_1d(pixels, w, h, &kernel, true);
-    convolve_1d(pixels, w, h, &kernel, false);
-}
-
-fn laplacian(pixels: &[f32], w: usize, h: usize) -> Vec<f32> {
-    let mut out = vec![0.0; pixels.len()];
-    for y in 1..h - 1 {
-        for x in 1..w - 1 {
-            let i = y * w + x;
-            let mut total = 0.0;
-            for (ky, row) in [0, -1, 0, -1, 4, -1, 0, -1, 0].chunks(3).enumerate() {
-                for (kx, &k) in row.iter().enumerate() {
-                    total += pixels[(y + ky - 1) * w + (x + kx - 1)] * k as f32;
-                }
-            }
-            out[i] = total;
-        }
-    }
-    out
-}
 
 fn chunk_direction(chunk: &[f32], width: usize, height: usize) -> (f32, f32) {
     let mut x_grad = 0.0;
@@ -238,15 +168,7 @@ pub fn img_to_char_rows(
     let mut resized_f32 = resize_f32(&luma_pixels, luma_w, luma_h, out_img_width, out_img_height);
     adjust_luma(&mut resized_f32, tone);
 
-    let mut edge_pixels = resized_f32.clone();
-    gaussian_blur(&mut edge_pixels, out_img_width, out_img_height, 1.0);
-    let edge_pixels = laplacian(&edge_pixels, out_img_width, out_img_height);
-
-    let combined: Vec<f32> = resized_f32
-        .iter()
-        .zip(edge_pixels.iter())
-        .map(|(l, e)| l + e)
-        .collect();
+    let combined: Vec<f32> = resized_f32.clone();
 
     let chars = pixels_to_chars(&combined, out_img_width, out_img_height, font);
 
@@ -298,7 +220,7 @@ pub fn char_rows_to_terminal_color_string(
 
     let n_cols = char_rows[0].len();
     let n_rows = char_rows.len();
-    let color_img = img.resize_exact(n_cols as u32, n_rows as u32, FilterType::Nearest);
+    let color_img = img.resize_exact(n_cols as u32, n_rows as u32, FilterType::Triangle);
 
     let mut result = String::new();
     for (j, row) in char_rows.iter().enumerate() {

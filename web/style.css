@@ -401,7 +401,9 @@ main {
 #pre {
   background: #000;
   color: #fff;
-  font: 12.5px/1.15 var(--mono);
+  font: 12.5px/1 var(--mono);
+  letter-spacing: 0;
+  word-spacing: 0;
   padding: 0.9rem;
   border-radius: var(--radius);
   border: 1px solid var(--border);

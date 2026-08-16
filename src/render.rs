@@ -27,7 +27,7 @@ pub fn render_char_grid(
     let color_img = if no_color {
         None
     } else {
-        Some(img.resize_exact(n_cols, n_rows, FilterType::Nearest))
+        Some(img.resize_exact(n_cols, n_rows, FilterType::Triangle))
     };
 
     for (row, row_chars) in char_rows.iter().enumerate() {

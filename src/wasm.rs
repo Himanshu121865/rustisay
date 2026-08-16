@@ -221,7 +221,7 @@ fn char_rows_to_truecolor_string(
     let color_img = img.resize_exact(
         n_cols as u32,
         n_rows as u32,
-        image::imageops::FilterType::Nearest,
+        image::imageops::FilterType::Triangle,
     );
 
     let mut out = String::new();
