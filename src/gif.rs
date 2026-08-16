@@ -142,6 +142,7 @@ fn median_cut(entries: &[([u8; 3], u32)], max_colors: usize) -> Vec<[u8; 3]> {
                 break;
             }
         }
+        cut = cut.clamp(1, order.len() - 1);
 
         let right = order.split_off(cut);
         let left = order;
@@ -382,6 +383,37 @@ mod tests {
         for &index in frames[0].buffer.iter() {
             assert!(usize::from(index) < palette_len / 3);
         }
+    }
+
+    #[test]
+    fn gradient_frame_keeps_color_diversity() {
+        let mut frame = RgbaImage::from_pixel(320, 320, Rgba([0, 0, 0, 255]));
+        for (x, y, p) in frame.enumerate_pixels_mut() {
+            p.0 = [
+                (x * 255 / 319) as u8,
+                (y * 255 / 319) as u8,
+                ((x + y) * 255 / 638) as u8,
+                255,
+            ];
+        }
+        let mut bytes = Vec::new();
+        encode_to(
+            Cursor::new(&mut bytes),
+            vec![(frame, Duration::from_millis(50))],
+            0,
+        )
+        .unwrap();
+        let decoder = DecodeOptions::new().read_info(&bytes[..]).unwrap();
+        let palette = decoder.global_palette().unwrap_or_default();
+        let distinct: std::collections::HashSet<_> = palette
+            .chunks_exact(3)
+            .map(|c| [c[0], c[1], c[2]])
+            .collect();
+        assert!(
+            distinct.len() >= 128,
+            "palette collapsed to {} distinct colors",
+            distinct.len()
+        );
     }
 
     #[test]
